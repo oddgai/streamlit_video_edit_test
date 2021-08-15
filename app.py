@@ -37,14 +37,17 @@ def merge_video(merge_list_path, output_video_path):
 
 st.title("Video Chapter Detector")
 st.write("動画内の暗転/明転を検出して分割します")
-st.text('''
-Step1: 動画をアップロード
-Step2: チャプターが検出されるのを待つ（目安: 10分の動画 -> 10-20秒で完了）
-Step3: 好きなチャプターを選択して「結合」ボタンをクリック
-Step4: 少し待てば好きなチャプターだけの動画が完成！（PCの方はそのままDLもできるはずです）
+st.markdown('''
+```
+Step1: 動画をアップロードして、チャプターが検出されるのを待つ（目安: 10分の動画 -> 10-20秒で完了）
+Step2: 好きなチャプターを選んで「結合」ボタンをクリック
+Step3: 少し待てば選んだチャプターだけの動画が完成！（PCの方はそのままDLもできるはずです）
+```
 ''')
 
-video_file = st.file_uploader("Choose a file")
+content = st.empty()
+
+video_file = content.file_uploader("Choose a file")
 if video_file is not None:
 
 	video_bytes = video_file.read()
@@ -56,7 +59,8 @@ if video_file is not None:
 		f.write(video_bytes)
 
 	# 編集前の動画を表示
-	st.video(temp_video_full)
+	with content.container():
+		st.video(temp_video_full)
 
 	### チャプター検出
 	with st.spinner("チャプター検出中・・・"):
@@ -72,38 +76,42 @@ if video_file is not None:
 
 
 	### 結果表示
-	st.success(f"{len(chapter_files)}つのチャプターが検出されました！")
-	with st.form("chapter_select"):
-		col1, col2 = st.columns(2)
-		checks = [0] * len(chapter_files)   # 残すチャプターを決めるチェックボックス用のリスト
-		for i, (f, c) in enumerate(zip(chapter_files, detected_chapters)):
-			text = f"Chapter {i+1}:\n{c[0].get_timecode()[3:]} - {c[1].get_timecode()[3:]}"
-			if i % 2 == 0:
-				with col1:
-					checks[i] = st.checkbox(text)
-					st.video(f)
-			elif i % 2 == 1:
-				with col2:
-					checks[i] = st.checkbox(text)
-					st.video(f)
+	with content.container():
+		st.success(f"{len(chapter_files)}つのチャプターが検出されました！")
+		with st.form("chapter_select"):
+			### チャプターリストを2カラムで表示
+			col1, col2 = st.columns(2)
+			checks = [0] * len(chapter_files)   # 残すチャプターを決めるチェックボックス用のリスト
+			for i, (f, c) in enumerate(zip(chapter_files, detected_chapters)):
+				text = f"Chapter {i+1}:\n{c[0].get_timecode()[3:]} - {c[1].get_timecode()[3:]}"
+				if i % 2 == 0:
+					with col1:
+						checks[i] = st.checkbox(text)
+						st.video(f)
+				elif i % 2 == 1:
+					with col2:
+						checks[i] = st.checkbox(text)
+						st.video(f)
 
-		### チェックされた動画のみを結合
-		submit_btn = st.form_submit_button("チェックしたチャプターを結合")
-		if submit_btn:
-			with st.spinner("結合中・・・"):
-				# チェックされた動画パスをtxtに書き込む
-				checked_chapters = [f for f, c in zip(chapter_files, checks) if c]
-				checked_chapter_file = os.path.join(temp_dir.name, "chapter_list.txt")
-				with open(checked_chapter_file, "w") as f:
-					for c in checked_chapters:
-						f.write(f"file {c}\n")
+			### チェックされた動画のみを結合
+			submit_btn = st.form_submit_button("チェックしたチャプターを結合")
+			if submit_btn:
+				with st.spinner("結合中・・・"):
+					# チェックされた動画パスをtxtに書き込む
+					checked_chapters = [f for f, c in zip(chapter_files, checks) if c]
+					checked_chapter_file = os.path.join(temp_dir.name, "chapter_list.txt")
+					with open(checked_chapter_file, "w") as f:
+						for c in checked_chapters:
+							f.write(f"file {c}\n")
 
-				# 結合して表示
-				merged_video = os.path.join(temp_dir.name, "merged.mp4")
-				merge_video(checked_chapter_file, merged_video)
+					# 結合
+					merged_video = os.path.join(temp_dir.name, "merged.mp4")
+					merge_video(checked_chapter_file, merged_video)
 
-			# 表示
-			st.video(merged_video)
+				# 結合した動画を表示
+				with content.container():
+					st.success(f"{len(checked_chapters)}つのチャプターを結合しました！")
+					st.video(merged_video)
 
 	### 動画を削除
 	temp_dir.cleanup()
